@@ -1,0 +1,235 @@
+import { Livre } from "./livre.model.js";
+import { Auteur } from "../auteurs/auteur.model.js";
+import { Category } from "../categories/category.model.js";
+import { AppError } from "../../utils/api-error.js";
+import { slugify } from "../../utils/slugify.js";
+
+export class LivreService {
+  static async getAllLivres({
+    page = 1,
+    limit = 12,
+    categorie,
+    format,
+    prixMin,
+    prixMax,
+    disponible,
+    aLaUne,
+    tri,
+    q,
+    admin = false,
+  } = {}) {
+    const filter = {};
+
+    if (!admin) {
+      if (disponible !== undefined) {
+        filter.disponible = disponible === "true" || disponible === true;
+      }
+    }
+
+    if (categorie) {
+      const cat = await Category.findOne({
+        $or: [{ slug: categorie }, { nom: categorie }],
+        type: "livre",
+      });
+      if (cat) filter.categorie = cat._id;
+    }
+
+    if (format) {
+      filter.formats = format;
+    }
+
+    if (prixMin !== undefined || prixMax !== undefined) {
+      filter.prix = {};
+      if (prixMin !== undefined) filter.prix.$gte = Number(prixMin);
+      if (prixMax !== undefined) filter.prix.$lte = Number(prixMax);
+    }
+
+    if (aLaUne === "true" || aLaUne === true) {
+      filter.aLaUne = true;
+    }
+
+    if (q) {
+      filter.$or = [
+        { titre: { $regex: q, $options: "i" } },
+        { sousTitre: { $regex: q, $options: "i" } },
+        { resume: { $regex: q, $options: "i" } },
+        { isbn: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    let sortOption = { publication: -1 };
+    if (tri === "prix-asc") sortOption = { prix: 1 };
+    if (tri === "prix-desc") sortOption = { prix: -1 };
+    if (tri === "titre") sortOption = { titre: 1 };
+    if (tri === "popularite") sortOption = { ventesCount: -1, lecturesCount: -1 };
+
+    const skip = (page - 1) * limit;
+    const [livres, total] = await Promise.all([
+      Livre.find(filter)
+        .populate("auteur", "nom slug role photo")
+        .populate("categorie", "nom slug")
+        .sort(sortOption)
+        .skip(skip)
+        .limit(Number(limit)),
+      Livre.countDocuments(filter),
+    ]);
+
+    return {
+      livres,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  static async getLivreBySlug(slugOrId) {
+    let livre = await Livre.findOne({ slug: slugOrId })
+      .populate("auteur", "nom slug role bio photo reseaux")
+      .populate("categorie", "nom slug");
+
+    if (!livre && slugOrId.match(/^[0-9a-fA-F]{24}$/)) {
+      livre = await Livre.findById(slugOrId)
+        .populate("auteur", "nom slug role bio photo reseaux")
+        .populate("categorie", "nom slug");
+    }
+
+    if (!livre) {
+      throw new AppError("Livre introuvable", 404);
+    }
+
+    // Ouvrages du même auteur
+    const memeAuteur = await Livre.find({
+      auteur: livre.auteur._id,
+      _id: { $ne: livre._id },
+      disponible: true,
+    })
+      .populate("auteur", "nom slug")
+      .limit(4);
+
+    return {
+      livre,
+      memeAuteur,
+    };
+  }
+
+  static async getApercuLivre(slugOrId) {
+    const { livre } = await this.getLivreBySlug(slugOrId);
+    return {
+      slug: livre.slug,
+      titre: livre.titre,
+      auteur: livre.auteur,
+      pages: livre.pages,
+      apercuPages: livre.apercuPages,
+      apercuPourcent: livre.apercuPourcent,
+      chapitres: livre.chapitres,
+    };
+  }
+
+  static async createLivre(data) {
+    const slug = slugify(data.titre);
+    const existing = await Livre.findOne({ slug });
+    if (existing) {
+      throw new AppError(`Un livre avec le titre '${data.titre}' existe déjà`, 409);
+    }
+
+    // Résolution de l'auteur
+    let auteurId = data.auteur;
+    if (typeof auteurId === "string" && !auteurId.match(/^[0-9a-fA-F]{24}$/)) {
+      const auteur = await Auteur.findOne({ slug: auteurId });
+      if (!auteur) throw new AppError(`Auteur '${data.auteur}' introuvable`, 404);
+      auteurId = auteur._id;
+    }
+
+    // Résolution de la catégorie
+    let categorieId = data.categorie;
+    if (typeof categorieId === "string" && !categorieId.match(/^[0-9a-fA-F]{24}$/)) {
+      let cat = await Category.findOne({
+        $or: [{ slug: slugify(categorieId) }, { nom: categorieId }],
+        type: "livre",
+      });
+      if (!cat) {
+        cat = await Category.create({ nom: categorieId, type: "livre" });
+      }
+      categorieId = cat._id;
+    }
+
+    // Traitement des formats si passés en chaîne
+    let formats = data.formats;
+    if (typeof formats === "string") {
+      formats = formats.split(",").map((f) => f.trim()).filter(Boolean);
+    }
+
+    // Génération automatique des chapitres par défaut si non fournis
+    let chapitres = data.chapitres;
+    if (!chapitres || chapitres.length === 0) {
+      const nbChapitres = 6;
+      const pagesTotales = Number(data.pages) || 200;
+      const pagesParChapitre = Math.round(pagesTotales / nbChapitres);
+      chapitres = Array.from({ length: nbChapitres }, (_, i) => ({
+        titre: `Chapitre ${i + 1}`,
+        pages: Array.from({ length: pagesParChapitre }, (_, p) => i * pagesParChapitre + p + 1),
+        gratuit: i < 2,
+      }));
+    }
+
+    const livre = await Livre.create({
+      ...data,
+      slug,
+      auteur: auteurId,
+      categorie: categorieId,
+      formats: formats || ["PDF", "EPUB"],
+      chapitres,
+      prix: Number(data.prix),
+      promo: data.promo ? Number(data.promo) : null,
+      stock: Number(data.stock) || 0,
+      pages: Number(data.pages) || 100,
+    });
+
+    return await livre.populate(["auteur", "categorie"]);
+  }
+
+  static async updateLivre(id, data) {
+    if (data.titre) {
+      data.slug = slugify(data.titre);
+    }
+
+    if (data.auteur && typeof data.auteur === "string" && !data.auteur.match(/^[0-9a-fA-F]{24}$/)) {
+      const auteur = await Auteur.findOne({ slug: data.auteur });
+      if (auteur) data.auteur = auteur._id;
+    }
+
+    if (data.categorie && typeof data.categorie === "string" && !data.categorie.match(/^[0-9a-fA-F]{24}$/)) {
+      const cat = await Category.findOne({
+        $or: [{ slug: slugify(data.categorie) }, { nom: data.categorie }],
+        type: "livre",
+      });
+      if (cat) data.categorie = cat._id;
+    }
+
+    if (typeof data.formats === "string") {
+      data.formats = data.formats.split(",").map((f) => f.trim()).filter(Boolean);
+    }
+
+    const livre = await Livre.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    }).populate(["auteur", "categorie"]);
+
+    if (!livre) {
+      throw new AppError("Livre introuvable", 404);
+    }
+
+    return livre;
+  }
+
+  static async deleteLivre(id) {
+    const livre = await Livre.findByIdAndDelete(id);
+    if (!livre) {
+      throw new AppError("Livre introuvable", 404);
+    }
+    return livre;
+  }
+}
