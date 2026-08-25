@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import { User } from "../users/user.model.js";
@@ -16,7 +17,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  static async register({ nom, prenom, email, password }) {
+  static async register({ nom, prenom, email, password, telephone, adresse }) {
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
       throw new AppError("Un compte avec cette adresse e-mail existe déjà.", 409);
@@ -27,6 +28,8 @@ export class AuthService {
       prenom: (prenom || "").trim(),
       email: email.toLowerCase().trim(),
       password,
+      telephone: (telephone || "").trim(),
+      adresse: (adresse || "").trim(),
       role: "lecteur", // Rôle par défaut à l'inscription
     });
 
@@ -126,7 +129,7 @@ export class AuthService {
   }
 
   static async updateProfile(userId, updateData) {
-    const champsAutorises = ["nom", "prenom", "telephone", "ville", "avatar", "preferences"];
+    const champsAutorises = ["nom", "prenom", "telephone", "adresse", "ville", "avatar", "preferences"];
     const filtered = {};
 
     for (const key of champsAutorises) {
@@ -152,7 +155,10 @@ export class AuthService {
     return user;
   }
 
-  static async changePassword(userId, { mdpActuel, mdpNouveau }) {
+  static async changePassword(userId, body) {
+    const mdpActuel = body.mdpActuel ?? body.ancienPassword;
+    const mdpNouveau = body.mdpNouveau ?? body.nouveauPassword;
+
     const user = await User.findById(userId).select("+password");
     if (!user) {
       throw new AppError("Utilisateur introuvable.", 404);
@@ -163,7 +169,7 @@ export class AuthService {
       throw new AppError("Le mot de passe actuel est incorrect.", 400);
     }
 
-    if (mdpNouveau.length < 6) {
+    if (!mdpNouveau || mdpNouveau.length < 6) {
       throw new AppError("Le nouveau mot de passe doit comporter au moins 6 caractères.", 400);
     }
 
@@ -171,6 +177,64 @@ export class AuthService {
     await user.save();
 
     return { message: "Mot de passe mis à jour avec succès." };
+  }
+
+  static async requestPasswordReset(email) {
+    const message =
+      "Si un compte existe avec cette adresse e-mail, un lien de réinitialisation vous a été envoyé.";
+
+    if (!email?.trim()) {
+      throw new AppError("L'adresse e-mail est obligatoire.", 400);
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user || user.statut === "Suspendu") {
+      return { message };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${ENV.CLIENT_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
+    const result = { message };
+
+    if (ENV.NODE_ENV === "development") {
+      console.log(`[RESET PASSWORD] Lien pour ${user.email}: ${resetUrl}`);
+      result.resetUrl = resetUrl;
+    }
+
+    return result;
+  }
+
+  static async resetPassword({ token, password }) {
+    if (!token?.trim()) {
+      throw new AppError("Lien de réinitialisation invalide.", 400);
+    }
+
+    if (!password || password.length < 6) {
+      throw new AppError("Le mot de passe doit comporter au moins 6 caractères.", 400);
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token.trim()).digest("hex");
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).select("+resetPasswordToken +resetPasswordExpires");
+
+    if (!user) {
+      throw new AppError("Lien de réinitialisation invalide ou expiré.", 400);
+    }
+
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return { message: "Mot de passe réinitialisé avec succès." };
   }
 
   static async setup2FA(userId) {

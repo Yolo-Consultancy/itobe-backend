@@ -7,7 +7,7 @@ import { slugify } from "../../utils/slugify.js";
 export class LivreService {
   static async getAllLivres({
     page = 1,
-    limit = 12,
+    limit = 100,
     categorie,
     format,
     prixMin,
@@ -21,9 +21,10 @@ export class LivreService {
     const filter = {};
 
     if (!admin) {
-      if (disponible !== undefined) {
-        filter.disponible = disponible === "true" || disponible === true;
-      }
+      // Catalogue public : tout sauf les livres explicitement retirés de la vente
+      filter.disponible = disponible === "false" || disponible === false ? false : { $ne: false };
+    } else if (disponible !== undefined) {
+      filter.disponible = disponible === "true" || disponible === true;
     }
 
     if (categorie) {
@@ -64,13 +65,14 @@ export class LivreService {
     if (tri === "popularite") sortOption = { ventesCount: -1, lecturesCount: -1 };
 
     const skip = (page - 1) * limit;
+    const pageLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
     const [livres, total] = await Promise.all([
       Livre.find(filter)
         .populate("auteur", "nom slug role photo")
         .populate("categorie", "nom slug")
         .sort(sortOption)
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(pageLimit),
       Livre.countDocuments(filter),
     ]);
 
@@ -78,9 +80,9 @@ export class LivreService {
       livres,
       pagination: {
         page: Number(page),
-        limit: Number(limit),
+        limit: pageLimit,
         total,
-        totalPages: Math.ceil(total / limit) || 1,
+        totalPages: Math.ceil(total / pageLimit) || 1,
       },
     };
   }
@@ -182,7 +184,10 @@ export class LivreService {
       categorie: categorieId,
       formats: formats || ["PDF", "EPUB"],
       chapitres,
+      resume: String(data.resume ?? "").trim() || "Résumé à compléter.",
       prix: Number(data.prix),
+      prixPapier:
+        data.prixPapier != null && Number(data.prixPapier) > 0 ? Number(data.prixPapier) : null,
       promo: data.promo ? Number(data.promo) : null,
       stock: Number(data.stock) || 0,
       pages: Number(data.pages) || 100,
@@ -211,6 +216,11 @@ export class LivreService {
 
     if (typeof data.formats === "string") {
       data.formats = data.formats.split(",").map((f) => f.trim()).filter(Boolean);
+    }
+
+    if (data.prixPapier !== undefined) {
+      data.prixPapier =
+        data.prixPapier != null && Number(data.prixPapier) > 0 ? Number(data.prixPapier) : null;
     }
 
     const livre = await Livre.findByIdAndUpdate(id, data, {

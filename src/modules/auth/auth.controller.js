@@ -62,6 +62,24 @@ export class AuthController {
     }
   }
 
+  static async forgotPassword(req, res, next) {
+    try {
+      const result = await AuthService.requestPasswordReset(req.body.email);
+      return ApiResponse.success(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req, res, next) {
+    try {
+      const result = await AuthService.resetPassword(req.body);
+      return ApiResponse.success(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async setup2FA(req, res, next) {
     try {
       const result = await AuthService.setup2FA(req.user._id);

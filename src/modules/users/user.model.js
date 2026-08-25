@@ -58,6 +58,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    adresse: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     ville: {
       type: String,
       trim: true,
@@ -77,6 +82,14 @@ const userSchema = new mongoose.Schema(
     deuxFacteurs: {
       actif: { type: Boolean, default: false },
       secret: { type: String, select: false },
+    },
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
     },
     historiqueConnexions: [connexionSchema],
   },

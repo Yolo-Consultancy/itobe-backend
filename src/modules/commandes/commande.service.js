@@ -5,6 +5,7 @@ import { Paiement } from "../paiements/paiement.model.js";
 import { BibliothequeService } from "../bibliotheque/bibliotheque.service.js";
 import { Coupon } from "../coupons/coupon.model.js";
 import { AppError } from "../../utils/api-error.js";
+import { prixLivrePourFormat } from "../../utils/livre-pricing.js";
 
 export class CommandeService {
   static async getUserOrders(userId, { statut } = {}) {
@@ -79,7 +80,7 @@ export class CommandeService {
       throw new AppError("Utilisateur introuvable", 404);
     }
 
-    let prixBase = livre.promo ?? livre.prix;
+    let prixBase = prixLivrePourFormat(livre, format);
     const frais = moyen === "Carte bancaire" ? 0.5 : 0.2;
 
     // Application coupon si fourni

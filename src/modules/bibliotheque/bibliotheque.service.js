@@ -54,7 +54,13 @@ export class BibliothequeService {
       };
     };
 
-    const achetes = biblio.achetes.map((a) => formatLivre(a.livre)).filter(Boolean);
+    const achetes = biblio.achetes
+      .map((a) => {
+        const livre = formatLivre(a.livre);
+        if (!livre) return null;
+        return { ...livre, dateAchat: a.dateAchat };
+      })
+      .filter(Boolean);
     const favoris = biblio.favoris.map((f) => formatLivre(f)).filter(Boolean);
     const telecharges = biblio.telecharges.map((t) => formatLivre(t)).filter(Boolean);
 
@@ -73,13 +79,32 @@ export class BibliothequeService {
         pourcentage: p.pourcentage,
       }));
 
+    const historiqueLecture = biblio.progressions
+      .filter((p) => p.livre?.slug && p.pourcentage > 0)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((p) => ({
+        ...formatLivre(p.livre),
+        page: p.page,
+        pourcentage: p.pourcentage,
+        date: p.date,
+      }));
+
+    const marquePages = biblio.marquePages.map((m) => ({
+      _id: m._id,
+      page: m.page,
+      note: m.note,
+      date: m.date,
+      livre: formatLivre(m.livre),
+    }));
+
     return {
       achetes,
       favoris,
       telecharges,
       progressions,
       enCours,
-      marquePages: biblio.marquePages,
+      historiqueLecture,
+      marquePages,
       appareils: biblio.appareils,
       historiqueSync: biblio.historiqueSync,
     };
@@ -129,8 +154,8 @@ export class BibliothequeService {
     return { telecharge: true, livre: livre.slug };
   }
 
-  static async mettreAJourProgression(userId, { livreSlugOrId, page, pourcentage }) {
-    const livre = await this._resoudreLivre(livreSlugOrId);
+  static async mettreAJourProgression(userId, { livreSlugOrId, slug, page, pourcentage }) {
+    const livre = await this._resoudreLivre(livreSlugOrId || slug);
     const biblio = await this.getOrCreateBibliotheque(userId);
 
     const index = biblio.progressions.findIndex((p) => p.livre.toString() === livre._id.toString());
@@ -153,8 +178,8 @@ export class BibliothequeService {
     return { page, pourcentage: pct, livre: livre.slug };
   }
 
-  static async gererMarquePages(userId, { livreSlugOrId, page, note }) {
-    const livre = await this._resoudreLivre(livreSlugOrId);
+  static async gererMarquePages(userId, { livreSlugOrId, slug, page, note }) {
+    const livre = await this._resoudreLivre(livreSlugOrId || slug);
     const biblio = await this.getOrCreateBibliotheque(userId);
 
     const index = biblio.marquePages.findIndex(

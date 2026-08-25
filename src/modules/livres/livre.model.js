@@ -70,6 +70,11 @@ const livreSchema = new mongoose.Schema(
       required: [true, "Le prix est obligatoire"],
       min: 0,
     },
+    prixPapier: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
     promo: {
       type: Number,
       default: null,
