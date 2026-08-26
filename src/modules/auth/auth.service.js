@@ -5,6 +5,7 @@ import qrcode from "qrcode";
 import { User } from "../users/user.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { ENV } from "../../config/env.config.js";
+import { isEmailConfigured, sendPasswordResetEmail } from "../../utils/email.service.js";
 
 export class AuthService {
   static genererTokens(userId, role) {
@@ -200,10 +201,27 @@ export class AuthService {
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${ENV.CLIENT_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
-    const result = { message };
+    const result = { message, emailSent: false };
 
-    if (ENV.NODE_ENV === "development") {
-      console.log(`[RESET PASSWORD] Lien pour ${user.email}: ${resetUrl}`);
+    if (isEmailConfigured()) {
+      try {
+        await sendPasswordResetEmail({
+          to: user.email,
+          prenom: user.prenom || user.nom,
+          resetUrl,
+        });
+        result.emailSent = true;
+        console.log(`[EMAIL] Réinitialisation envoyée à ${user.email}`);
+      } catch (error) {
+        console.error("[EMAIL] Échec envoi réinitialisation mot de passe:", error.message);
+        if (ENV.NODE_ENV === "development") {
+          console.log(`[RESET PASSWORD] Lien de secours pour ${user.email}: ${resetUrl}`);
+          result.resetUrl = resetUrl;
+          result.emailError = error.message;
+        }
+      }
+    } else if (ENV.NODE_ENV === "development") {
+      console.log(`[RESET PASSWORD] SMTP non configuré — lien pour ${user.email}: ${resetUrl}`);
       result.resetUrl = resetUrl;
     }
 
@@ -211,7 +229,14 @@ export class AuthService {
   }
 
   static async resetPassword({ token, password }) {
-    if (!token?.trim()) {
+    let rawToken = (token || "").trim();
+    try {
+      rawToken = decodeURIComponent(rawToken).trim();
+    } catch {
+      // token déjà décodé
+    }
+
+    if (!rawToken) {
       throw new AppError("Lien de réinitialisation invalide.", 400);
     }
 
@@ -219,14 +244,17 @@ export class AuthService {
       throw new AppError("Le mot de passe doit comporter au moins 6 caractères.", 400);
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token.trim()).digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() },
+      resetPasswordExpires: { $gt: new Date() },
     }).select("+resetPasswordToken +resetPasswordExpires");
 
     if (!user) {
-      throw new AppError("Lien de réinitialisation invalide ou expiré.", 400);
+      throw new AppError(
+        "Lien de réinitialisation invalide ou expiré. Demandez un nouveau lien (seul le dernier e-mail reçu est valide).",
+        400,
+      );
     }
 
     user.password = password;
