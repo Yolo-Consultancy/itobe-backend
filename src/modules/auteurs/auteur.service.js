@@ -98,4 +98,22 @@ export class AuteurService {
     }
     return auteur;
   }
+
+  static async getAuteurByUserId(userId) {
+    const auteur = await Auteur.findOne({ user: userId });
+    if (!auteur) {
+      throw new AppError("Aucune fiche auteur n'est liée à ce compte.", 404);
+    }
+    return auteur;
+  }
+
+  static async updateBioByUserId(userId, bio) {
+    const auteur = await Auteur.findOne({ user: userId });
+    if (!auteur) {
+      throw new AppError("Aucune fiche auteur n'est liée à ce compte.", 404);
+    }
+    auteur.bio = String(bio ?? "").trim();
+    await auteur.save();
+    return auteur;
+  }
 }

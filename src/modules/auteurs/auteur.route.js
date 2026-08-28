@@ -6,6 +6,21 @@ const router = Router();
 
 // Routes publiques
 router.get("/", AuteurController.getAllAuteurs);
+
+// Fiche auteur du compte connecté (avant /:slug)
+router.get(
+  "/me/profile",
+  requireAuth,
+  restrictTo("admin", "editeur"),
+  AuteurController.getMyProfile,
+);
+router.patch(
+  "/me/bio",
+  requireAuth,
+  restrictTo("admin", "editeur"),
+  AuteurController.updateMyBio,
+);
+
 router.get("/:slug", AuteurController.getAuteurBySlug);
 
 // Routes protégées (admin / editeur)

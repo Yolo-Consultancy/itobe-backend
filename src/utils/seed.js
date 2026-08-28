@@ -86,10 +86,10 @@ async function seed() {
   const auteursDocs = await Auteur.create([
     {
       nom: "Christopher Bigo's",
-      biographie: "Écrivain, essayiste et éditeur basé à Kinshasa. Passionné par les récits urbains et l'histoire congolaise contemporaine.",
+      bio: "Écrivain, essayiste et éditeur basé à Kinshasa. Passionné par les récits urbains et l'histoire congolaise contemporaine.\n\nFondateur d'Itobe Éditions, il consacre une part essentielle de son travail à documenter les mutations de la ville et les métiers du livre en Afrique centrale.\n\nSes essais explorent la mémoire collective, la circulation des idées et la place du lecteur dans l'économie culturelle.",
       ville: "Kinshasa",
       role: "Écrivain & Essayiste",
-      email: "christopher@itobe.cd",
+      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face",
       reseaux: [
         { label: "Twitter / X", url: "https://x.com" },
         { label: "LinkedIn", url: "https://linkedin.com" },
@@ -98,27 +98,27 @@ async function seed() {
     },
     {
       nom: "Espoir Kakesa",
-      biographie: "Journaliste culturel, critique littéraire et reporter d'investigation.",
+      bio: "Journaliste culturel, critique littéraire et reporter d'investigation basé à Kinshasa.\n\nIl anime le podcast « Dans l'atelier d'écriture » et couvre la scène éditoriale congolaise pour plusieurs médias. Ses enquêtes croisent culture, politique et société.\n\nAuteur d'essais courts sur l'action collective et la parole publique, il publie régulièrement des portraits d'auteurs et des chroniques sur la lecture numérique.",
       ville: "Kinshasa",
       role: "Journaliste & Auteur",
-      email: "espoir@itobe.cd",
+      photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face",
       reseaux: [{ label: "Twitter / X", url: "https://x.com" }],
       user: adminUser._id,
     },
     {
       nom: "Marie Lomba",
-      biographie: "Économiste et chroniqueuse spécialisée dans les industries créatives africaines.",
+      bio: "Économiste et chroniqueuse spécialisée dans les industries créatives africaines.\n\nBasée à Lubumbashi, elle analyse les modèles économiques des maisons d'édition, des librairies et des plateformes numériques.\n\nSes chroniques décryptent le mobile money, les abonnements culturels et les nouvelles formes de rémunération des auteurs.",
       ville: "Lubumbashi",
       role: "Chroniqueuse Éco",
-      email: "marie.lomba@itobe.cd",
+      photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face",
       reseaux: [{ label: "LinkedIn", url: "https://linkedin.com" }],
     },
     {
       nom: "Patrick Mundele",
-      biographie: "Poète et nouvelliste explorant les mémoires d'Afrique centrale.",
+      bio: "Poète et nouvelliste explorant les mémoires d'Afrique centrale.\n\nInstallé à Goma, il écrit des textes brefs où se mêlent paysage, exile et résilience.\n\nSes recueils et nouvelles ont été salués pour leur sensibilité au quotidien des villes frontalières.",
       ville: "Goma",
       role: "Poète & Nouvelliste",
-      email: "patrick.mundele@itobe.cd",
+      photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face",
     },
   ]);
 

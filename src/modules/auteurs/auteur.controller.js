@@ -50,4 +50,23 @@ export class AuteurController {
       next(error);
     }
   }
+
+  static async getMyProfile(req, res, next) {
+    try {
+      const auteur = await AuteurService.getAuteurByUserId(req.user._id);
+      return ApiResponse.success(res, auteur, "Fiche auteur récupérée");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateMyBio(req, res, next) {
+    try {
+      const { bio } = req.body ?? {};
+      const auteur = await AuteurService.updateBioByUserId(req.user._id, bio);
+      return ApiResponse.success(res, auteur, "Biographie mise à jour");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
