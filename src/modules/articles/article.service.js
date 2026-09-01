@@ -3,6 +3,7 @@ import { Auteur } from "../auteurs/auteur.model.js";
 import { Category } from "../categories/category.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
+import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
 
 export class ArticleService {
   static async getAllArticles({ page = 1, limit = 10, categorie, tag, populaire, q, admin = false } = {}) {
@@ -120,16 +121,23 @@ export class ArticleService {
       categorieId = cat._id;
     }
 
+    const payload = await resolveCloudinaryMediaFields(data, { folder: "itobe/articles" });
+
     const article = await Article.create({
-      ...data,
+      ...payload,
       slug,
       auteur: auteurId,
       categorie: categorieId,
-      statut: data.statut || "Brouillon",
-      etat: data.statut === "Publié" ? "Publié" : data.statut === "Programmé" ? "En revue" : "Brouillon",
+      statut: payload.statut || "Brouillon",
+      etat:
+        payload.statut === "Publié"
+          ? "Publié"
+          : payload.statut === "Programmé"
+            ? "En revue"
+            : "Brouillon",
       datePublication:
-        data.datePublication ||
-        (data.statut === "Publié" ? new Date() : undefined),
+        payload.datePublication ||
+        (payload.statut === "Publié" ? new Date() : undefined),
     });
 
     return await article.populate(["auteur", "categorie"]);
@@ -168,7 +176,9 @@ export class ArticleService {
       if (cat) data.categorie = cat._id;
     }
 
-    const article = await Article.findByIdAndUpdate(id, data, {
+    const payload = await resolveCloudinaryMediaFields(data, { folder: "itobe/articles" });
+
+    const article = await Article.findByIdAndUpdate(id, payload, {
       new: true,
       runValidators: true,
     }).populate(["auteur", "categorie"]);

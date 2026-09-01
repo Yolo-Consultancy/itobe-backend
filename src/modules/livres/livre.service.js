@@ -3,6 +3,7 @@ import { Auteur } from "../auteurs/auteur.model.js";
 import { Category } from "../categories/category.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
+import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
 
 export class LivreService {
   static async getAllLivres({
@@ -177,20 +178,25 @@ export class LivreService {
       }));
     }
 
+    const payload = await resolveCloudinaryMediaFields(data, {
+      folder: "itobe/livres",
+      galleryKey: null,
+    });
+
     const livre = await Livre.create({
-      ...data,
+      ...payload,
       slug,
       auteur: auteurId,
       categorie: categorieId,
       formats: formats || ["PDF", "EPUB"],
       chapitres,
-      resume: String(data.resume ?? "").trim() || "Résumé à compléter.",
-      prix: Number(data.prix),
+      resume: String(payload.resume ?? "").trim() || "Résumé à compléter.",
+      prix: Number(payload.prix),
       prixPapier:
-        data.prixPapier != null && Number(data.prixPapier) > 0 ? Number(data.prixPapier) : null,
-      promo: data.promo ? Number(data.promo) : null,
-      stock: Number(data.stock) || 0,
-      pages: Number(data.pages) || 100,
+        payload.prixPapier != null && Number(payload.prixPapier) > 0 ? Number(payload.prixPapier) : null,
+      promo: payload.promo ? Number(payload.promo) : null,
+      stock: Number(payload.stock) || 0,
+      pages: Number(payload.pages) || 100,
     });
 
     return await livre.populate(["auteur", "categorie"]);
@@ -223,7 +229,12 @@ export class LivreService {
         data.prixPapier != null && Number(data.prixPapier) > 0 ? Number(data.prixPapier) : null;
     }
 
-    const livre = await Livre.findByIdAndUpdate(id, data, {
+    const payload = await resolveCloudinaryMediaFields(data, {
+      folder: "itobe/livres",
+      galleryKey: null,
+    });
+
+    const livre = await Livre.findByIdAndUpdate(id, payload, {
       new: true,
       runValidators: true,
     }).populate(["auteur", "categorie"]);

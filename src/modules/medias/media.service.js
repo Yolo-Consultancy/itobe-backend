@@ -1,16 +1,10 @@
 import { Media } from "./media.model.js";
 import { AppError } from "../../utils/api-error.js";
-import { v2 as cloudinary } from "cloudinary";
-import { ENV } from "../../config/env.config.js";
-import fs from "fs";
-
-if (ENV.CLOUDINARY_CLOUD_NAME) {
-  cloudinary.config({
-    cloud_name: ENV.CLOUDINARY_CLOUD_NAME,
-    api_key: ENV.CLOUDINARY_API_KEY,
-    api_secret: ENV.CLOUDINARY_API_SECRET,
-  });
-}
+import {
+  deleteFromCloudinary,
+  isCloudinaryConfigured,
+  uploadFileToCloudinary,
+} from "../../utils/cloudinary.service.js";
 
 function formaterTaille(bytes) {
   if (bytes < 1024) return `${bytes} o`;
@@ -49,20 +43,10 @@ export class MediaService {
     let url = `/uploads/${file.filename}`;
     let publicId = "";
 
-    // Si Cloudinary est configuré, on upload vers Cloudinary
-    if (ENV.CLOUDINARY_CLOUD_NAME && ENV.CLOUDINARY_API_KEY) {
-      try {
-        const uploadResult = await cloudinary.uploader.upload(file.path, {
-          folder: "itobe",
-          resource_type: "auto",
-        });
-        url = uploadResult.secure_url;
-        publicId = uploadResult.public_id;
-        // Supprimer le fichier local temporaire
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      } catch (err) {
-        console.error("Erreur upload Cloudinary:", err);
-      }
+    if (isCloudinaryConfigured()) {
+      const uploaded = await uploadFileToCloudinary(file, "itobe/medias");
+      url = uploaded.url;
+      publicId = uploaded.publicId;
     }
 
     let type = "Document";
@@ -95,12 +79,8 @@ export class MediaService {
       throw new AppError("Média introuvable", 404);
     }
 
-    if (media.publicId && ENV.CLOUDINARY_CLOUD_NAME) {
-      try {
-        await cloudinary.uploader.destroy(media.publicId);
-      } catch (err) {
-        console.error("Erreur suppression Cloudinary:", err);
-      }
+    if (media.publicId) {
+      await deleteFromCloudinary(media.publicId);
     }
 
     await Media.findByIdAndDelete(id);
