@@ -10,8 +10,8 @@ router.get("/:slug", ArticleController.getArticleBySlug);
 
 // Routes d'administration
 router.get("/admin/all", requireAuth, restrictTo("admin", "editeur"), ArticleController.getArticlesAdmin);
-router.post("/", requireAuth, restrictTo("admin"), ArticleController.createArticle);
-router.put("/:id", requireAuth, restrictTo("admin"), ArticleController.updateArticle);
-router.delete("/:id", requireAuth, restrictTo("admin"), ArticleController.deleteArticle);
+router.post("/", requireAuth, restrictTo("admin", "editeur"), ArticleController.createArticle);
+router.put("/:id", requireAuth, restrictTo("admin", "editeur"), ArticleController.updateArticle);
+router.delete("/:id", requireAuth, restrictTo("admin", "editeur"), ArticleController.deleteArticle);
 
 export const articleRoutes = router;

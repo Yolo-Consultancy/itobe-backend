@@ -127,6 +127,9 @@ export class ArticleService {
       categorie: categorieId,
       statut: data.statut || "Brouillon",
       etat: data.statut === "Publié" ? "Publié" : data.statut === "Programmé" ? "En revue" : "Brouillon",
+      datePublication:
+        data.datePublication ||
+        (data.statut === "Publié" ? new Date() : undefined),
     });
 
     return await article.populate(["auteur", "categorie"]);
@@ -135,6 +138,21 @@ export class ArticleService {
   static async updateArticle(id, data) {
     if (data.titre) {
       data.slug = slugify(data.titre);
+    }
+
+    if (data.statut) {
+      data.etat =
+        data.statut === "Publié" ? "Publié" : data.statut === "Programmé" ? "En revue" : "Brouillon";
+      if (data.statut === "Publié" && !data.datePublication) {
+        data.datePublication = new Date();
+      }
+    }
+
+    if (data.etat === "Publié" && !data.statut) {
+      data.statut = "Publié";
+      if (!data.datePublication) {
+        data.datePublication = new Date();
+      }
     }
 
     if (data.auteur && typeof data.auteur === "string" && !data.auteur.match(/^[0-9a-fA-F]{24}$/)) {
