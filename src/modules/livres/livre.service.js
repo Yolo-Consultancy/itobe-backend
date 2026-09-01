@@ -181,6 +181,7 @@ export class LivreService {
     const payload = await resolveCloudinaryMediaFields(data, {
       folder: "itobe/livres",
       galleryKey: null,
+      htmlKeys: ["resume"],
     });
 
     const livre = await Livre.create({
@@ -232,6 +233,7 @@ export class LivreService {
     const payload = await resolveCloudinaryMediaFields(data, {
       folder: "itobe/livres",
       galleryKey: null,
+      htmlKeys: ["resume"],
     });
 
     const livre = await Livre.findByIdAndUpdate(id, payload, {

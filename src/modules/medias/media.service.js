@@ -1,8 +1,8 @@
 import { Media } from "./media.model.js";
 import { AppError } from "../../utils/api-error.js";
 import {
+  assertCloudinaryConfigured,
   deleteFromCloudinary,
-  isCloudinaryConfigured,
   uploadFileToCloudinary,
 } from "../../utils/cloudinary.service.js";
 
@@ -40,14 +40,9 @@ export class MediaService {
       throw new AppError("Aucun fichier fourni", 400);
     }
 
-    let url = `/uploads/${file.filename}`;
-    let publicId = "";
+    assertCloudinaryConfigured();
 
-    if (isCloudinaryConfigured()) {
-      const uploaded = await uploadFileToCloudinary(file, "itobe/medias");
-      url = uploaded.url;
-      publicId = uploaded.publicId;
-    }
+    const uploaded = await uploadFileToCloudinary(file, "itobe/medias");
 
     let type = "Document";
     if (file.mimetype.startsWith("image/")) type = "Image";
@@ -55,8 +50,8 @@ export class MediaService {
 
     const media = await Media.create({
       nom: file.originalname,
-      url,
-      publicId,
+      url: uploaded.url,
+      publicId: uploaded.publicId,
       type,
       poids: formaterTaille(file.size),
       tailleOctets: file.size,
@@ -69,6 +64,10 @@ export class MediaService {
   }
 
   static async createMediaManuel(data) {
+    if (typeof data?.url === "string" && data.url.startsWith("/uploads/")) {
+      throw new AppError("Le stockage local n'est plus supporté. Utilisez Cloudinary.", 400);
+    }
+
     const media = await Media.create(data);
     return media;
   }

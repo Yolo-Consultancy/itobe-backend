@@ -3,6 +3,7 @@ import { Livre } from "../livres/livre.model.js";
 import { Article } from "../articles/article.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
+import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
 
 export class AuteurService {
   static async getAllAuteurs({ page, limit, q } = {}) {
@@ -66,8 +67,14 @@ export class AuteurService {
       throw new AppError(`Un auteur avec le nom '${data.nom}' existe déjà`, 409);
     }
 
+    const payload = await resolveCloudinaryMediaFields(data, {
+      folder: "itobe/auteurs",
+      coverKey: "photo",
+      galleryKey: null,
+    });
+
     const auteur = await Auteur.create({
-      ...data,
+      ...payload,
       slug,
     });
 
@@ -79,7 +86,13 @@ export class AuteurService {
       updateData.slug = slugify(updateData.nom);
     }
 
-    const auteur = await Auteur.findByIdAndUpdate(id, updateData, {
+    const payload = await resolveCloudinaryMediaFields(updateData, {
+      folder: "itobe/auteurs",
+      coverKey: "photo",
+      galleryKey: null,
+    });
+
+    const auteur = await Auteur.findByIdAndUpdate(id, payload, {
       new: true,
       runValidators: true,
     });

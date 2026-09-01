@@ -1,5 +1,3 @@
-import path from "path";
-import { fileURLToPath } from "url";
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -7,6 +5,7 @@ import helmet from 'helmet';
 
 import { connectDB } from './config/db.config.js';
 import { ENV } from './config/env.config.js';
+import { isCloudinaryConfigured } from './utils/cloudinary.service.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 
 // Import route modules
@@ -33,20 +32,26 @@ import { contactRoutes } from './modules/contact/contact.route.js';
 import { rechercheRoutes } from './modules/recherche/recherche.route.js';
 
 const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 if (ENV.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
 // Connect to DB
 connectDB();
+
+if (isCloudinaryConfigured()) {
+  console.log("[Cloudinary] Configuré — les médias sont stockés sur Cloudinary.");
+} else {
+  console.warn(
+    "[Cloudinary] Non configuré. Définissez CLOUDINARY_* dans .env pour téléverser des images.",
+  );
+}
 
 // Base API path
 const api = express.Router();

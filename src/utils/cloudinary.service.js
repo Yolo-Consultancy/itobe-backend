@@ -15,16 +15,20 @@ export function isCloudinaryConfigured() {
   return Boolean(ENV.CLOUDINARY_CLOUD_NAME && ENV.CLOUDINARY_API_KEY && ENV.CLOUDINARY_API_SECRET);
 }
 
-/**
- * Téléverse une image vers Cloudinary (fichier local ou data URL).
- */
-export async function uploadToCloudinary(source, { folder = "itobe", resourceType = "auto" } = {}) {
+export function assertCloudinaryConfigured() {
   if (!isCloudinaryConfigured()) {
     throw new AppError(
-      "Cloudinary n'est pas configuré. Ajoutez CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET dans .env",
+      "Cloudinary est requis. Définissez CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET dans .env",
       503,
     );
   }
+}
+
+/**
+ * Téléverse une image vers Cloudinary (fichier local, buffer ou data URL).
+ */
+export async function uploadToCloudinary(source, { folder = "itobe", resourceType = "auto" } = {}) {
+  assertCloudinaryConfigured();
 
   try {
     const result = await cloudinary.uploader.upload(source, {
@@ -42,14 +46,37 @@ export async function uploadToCloudinary(source, { folder = "itobe", resourceTyp
   }
 }
 
-export async function uploadFileToCloudinary(file, folder = "itobe") {
-  const uploaded = await uploadToCloudinary(file.path, { folder });
+export async function uploadBufferToCloudinary(
+  buffer,
+  { folder = "itobe", mimetype = "application/octet-stream" } = {},
+) {
+  assertCloudinaryConfigured();
 
-  if (file.path && fs.existsSync(file.path)) {
-    fs.unlinkSync(file.path);
+  if (!buffer?.length) {
+    throw new AppError("Fichier vide", 400);
   }
 
-  return uploaded;
+  const dataUri = `data:${mimetype};base64,${buffer.toString("base64")}`;
+  return uploadToCloudinary(dataUri, { folder });
+}
+
+export async function uploadFileToCloudinary(file, folder = "itobe") {
+  if (file?.buffer?.length) {
+    return uploadBufferToCloudinary(file.buffer, {
+      folder,
+      mimetype: file.mimetype || "application/octet-stream",
+    });
+  }
+
+  if (file?.path) {
+    const uploaded = await uploadToCloudinary(file.path, { folder });
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+    return uploaded;
+  }
+
+  throw new AppError("Fichier invalide pour Cloudinary", 400);
 }
 
 export async function uploadDataUrlToCloudinary(dataUrl, folder = "itobe") {
@@ -68,8 +95,37 @@ export async function deleteFromCloudinary(publicId) {
   }
 }
 
-/** Remplace les data URLs par des URLs Cloudinary dans les champs média. */
-export async function resolveCloudinaryMediaFields(data, { coverKey = "couverture", galleryKey = "galerie", folder = "itobe" } = {}) {
+/** Remplace les images data URL embarquées dans du HTML (éditeur riche). */
+export async function resolveCloudinaryHtmlImages(html, folder = "itobe/content") {
+  if (typeof html !== "string" || !html.includes("data:")) {
+    return html;
+  }
+
+  let next = html;
+  const matches = [...html.matchAll(/src="(data:[^"]+)"/g)];
+
+  for (const match of matches) {
+    const dataUrl = match[1];
+    const uploaded = await uploadDataUrlToCloudinary(dataUrl, folder);
+    next = next.split(dataUrl).join(uploaded.url);
+  }
+
+  return next;
+}
+
+/**
+ * Remplace les data URLs par des URLs Cloudinary dans les champs média.
+ */
+export async function resolveCloudinaryMediaFields(
+  data,
+  {
+    coverKey = "couverture",
+    galleryKey = "galerie",
+    photoKey = "photo",
+    htmlKeys = [],
+    folder = "itobe",
+  } = {},
+) {
   const next = { ...data };
 
   const cover = next[coverKey];
@@ -77,6 +133,12 @@ export async function resolveCloudinaryMediaFields(data, { coverKey = "couvertur
     const uploaded = await uploadDataUrlToCloudinary(cover, `${folder}/covers`);
     next[coverKey] = uploaded.url;
     if ("image" in next) next.image = uploaded.url;
+  }
+
+  const photo = next[photoKey];
+  if (photoKey && typeof photo === "string" && photo.startsWith("data:")) {
+    const uploaded = await uploadDataUrlToCloudinary(photo, `${folder}/photos`);
+    next[photoKey] = uploaded.url;
   }
 
   if (galleryKey && Array.isArray(next[galleryKey])) {
@@ -88,6 +150,12 @@ export async function resolveCloudinaryMediaFields(data, { coverKey = "couvertur
         return item;
       }),
     );
+  }
+
+  for (const key of htmlKeys) {
+    if (typeof next[key] === "string") {
+      next[key] = await resolveCloudinaryHtmlImages(next[key], `${folder}/content`);
+    }
   }
 
   return next;

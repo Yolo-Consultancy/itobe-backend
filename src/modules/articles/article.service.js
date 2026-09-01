@@ -5,6 +5,70 @@ import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
 import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
 
+async function resolveAuteurId(value) {
+  if (!value) return value;
+
+  if (value && typeof value === "object") {
+    if (typeof value.slug === "string") {
+      const auteur = await Auteur.findOne({ slug: value.slug });
+      if (auteur) return auteur._id;
+    }
+    if (typeof value._id === "string" && value._id.match(/^[0-9a-fA-F]{24}$/)) {
+      return value._id;
+    }
+    throw new AppError("Auteur invalide", 400);
+  }
+
+  if (typeof value === "string" && value.match(/^[0-9a-fA-F]{24}$/)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const auteur = await Auteur.findOne({ slug: value });
+    if (!auteur) {
+      throw new AppError(`Auteur '${value}' introuvable`, 404);
+    }
+    return auteur._id;
+  }
+
+  throw new AppError("Auteur invalide", 400);
+}
+
+async function resolveCategorieMediaId(value) {
+  if (!value) return value;
+
+  if (value && typeof value === "object") {
+    const label = typeof value.nom === "string" ? value.nom : typeof value.slug === "string" ? value.slug : null;
+    if (label) {
+      let cat = await Category.findOne({
+        $or: [{ slug: slugify(label) }, { nom: label }],
+        type: "media",
+      });
+      if (!cat) {
+        cat = await Category.create({ nom: label, type: "media" });
+      }
+      return cat._id;
+    }
+    if (typeof value._id === "string" && value._id.match(/^[0-9a-fA-F]{24}$/)) {
+      return value._id;
+    }
+    throw new AppError("Catégorie invalide", 400);
+  }
+
+  if (typeof value === "string") {
+    let cat = await Category.findOne({
+      $or: [{ slug: slugify(value) }, { nom: value }],
+      type: "media",
+    });
+    if (!cat) {
+      cat = await Category.create({ nom: value, type: "media" });
+    }
+    return cat._id;
+  }
+
+  throw new AppError("Catégorie invalide", 400);
+}
+
 export class ArticleService {
   static async getAllArticles({ page = 1, limit = 10, categorie, tag, populaire, q, admin = false } = {}) {
     const filter = {};
@@ -101,27 +165,15 @@ export class ArticleService {
     }
 
     // Résolution de l'auteur
-    let auteurId = data.auteur;
-    if (typeof auteurId === "string" && !auteurId.match(/^[0-9a-fA-F]{24}$/)) {
-      const auteur = await Auteur.findOne({ slug: auteurId });
-      if (!auteur) throw new AppError(`Auteur '${data.auteur}' introuvable`, 404);
-      auteurId = auteur._id;
-    }
+    const auteurId = await resolveAuteurId(data.auteur);
 
     // Résolution de la catégorie
-    let categorieId = data.categorie;
-    if (typeof categorieId === "string" && !categorieId.match(/^[0-9a-fA-F]{24}$/)) {
-      let cat = await Category.findOne({
-        $or: [{ slug: slugify(categorieId) }, { nom: categorieId }],
-        type: "media",
-      });
-      if (!cat) {
-        cat = await Category.create({ nom: categorieId, type: "media" });
-      }
-      categorieId = cat._id;
-    }
+    const categorieId = await resolveCategorieMediaId(data.categorie);
 
-    const payload = await resolveCloudinaryMediaFields(data, { folder: "itobe/articles" });
+    const payload = await resolveCloudinaryMediaFields(data, {
+      folder: "itobe/articles",
+      htmlKeys: ["contenu"],
+    });
 
     const article = await Article.create({
       ...payload,
@@ -163,20 +215,18 @@ export class ArticleService {
       }
     }
 
-    if (data.auteur && typeof data.auteur === "string" && !data.auteur.match(/^[0-9a-fA-F]{24}$/)) {
-      const auteur = await Auteur.findOne({ slug: data.auteur });
-      if (auteur) data.auteur = auteur._id;
+    if (data.auteur !== undefined) {
+      data.auteur = await resolveAuteurId(data.auteur);
     }
 
-    if (data.categorie && typeof data.categorie === "string" && !data.categorie.match(/^[0-9a-fA-F]{24}$/)) {
-      const cat = await Category.findOne({
-        $or: [{ slug: slugify(data.categorie) }, { nom: data.categorie }],
-        type: "media",
-      });
-      if (cat) data.categorie = cat._id;
+    if (data.categorie !== undefined) {
+      data.categorie = await resolveCategorieMediaId(data.categorie);
     }
 
-    const payload = await resolveCloudinaryMediaFields(data, { folder: "itobe/articles" });
+    const payload = await resolveCloudinaryMediaFields(data, {
+      folder: "itobe/articles",
+      htmlKeys: ["contenu"],
+    });
 
     const article = await Article.findByIdAndUpdate(id, payload, {
       new: true,
