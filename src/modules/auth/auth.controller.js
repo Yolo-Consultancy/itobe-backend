@@ -53,6 +53,15 @@ export class AuthController {
     }
   }
 
+  static async updateAvatar(req, res, next) {
+    try {
+      const user = await AuthService.updateAvatar(req.user._id, req.file);
+      return ApiResponse.success(res, user, "Photo de profil mise à jour");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async changePassword(req, res, next) {
     try {
       const result = await AuthService.changePassword(req.user._id, req.body);

@@ -6,6 +6,11 @@ import { User } from "../users/user.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { ENV } from "../../config/env.config.js";
 import { isEmailConfigured, sendPasswordResetEmail } from "../../utils/email.service.js";
+import {
+  assertCloudinaryConfigured,
+  deleteFromCloudinary,
+  uploadBufferToCloudinary,
+} from "../../utils/cloudinary.service.js";
 
 export class AuthService {
   static genererTokens(userId, role) {
@@ -152,6 +157,36 @@ export class AuthService {
       new: true,
       runValidators: true,
     });
+
+    return user;
+  }
+
+  static async updateAvatar(userId, file) {
+    if (!file) {
+      throw new AppError("Aucune photo fournie.", 400);
+    }
+    if (!file.mimetype?.startsWith("image/")) {
+      throw new AppError("La photo doit être une image.", 400);
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new AppError("La photo ne doit pas dépasser 5 Mo.", 400);
+    }
+
+    assertCloudinaryConfigured();
+    const uploaded = await uploadBufferToCloudinary(file.buffer, {
+      folder: "itobe/profils",
+      mimetype: file.mimetype,
+    });
+    const user = await User.findById(userId).select("+avatarPublicId");
+    if (!user) {
+      throw new AppError("Utilisateur introuvable.", 404);
+    }
+
+    const previousPublicId = user.avatarPublicId;
+    user.avatar = uploaded.url;
+    user.avatarPublicId = uploaded.publicId;
+    await user.save({ validateBeforeSave: false });
+    if (previousPublicId) await deleteFromCloudinary(previousPublicId);
 
     return user;
   }

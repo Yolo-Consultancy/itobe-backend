@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
+import { upload } from "../../middleware/upload.middleware.js";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.post("/reset-password", AuthController.resetPassword);
 router.use(requireAuth);
 router.get("/me", AuthController.getMe);
 router.put("/me", AuthController.updateProfile);
+router.post("/me/avatar", upload.single("avatar"), AuthController.updateAvatar);
 router.put("/change-password", AuthController.changePassword);
 router.post("/2fa/setup", AuthController.setup2FA);
 router.post("/2fa/verify", AuthController.verify2FA);
