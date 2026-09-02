@@ -78,6 +78,15 @@ export class LivreController {
     }
   }
 
+  static async uploadFichier(req, res, next) {
+    try {
+      const livre = await LivreService.uploadFichier(req.params.id, req.file, req.body.format);
+      return ApiResponse.success(res, livre, "Fichier du livre téléversé");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async deleteLivre(req, res, next) {
     try {
       await LivreService.deleteLivre(req.params.id);

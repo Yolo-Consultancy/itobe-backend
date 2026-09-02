@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { LivreController } from "./livre.controller.js";
 import { requireAuth, restrictTo } from "../../middleware/auth.middleware.js";
+import { upload } from "../../middleware/upload.middleware.js";
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.get("/", LivreController.getAllLivres);
 router.get("/admin/all", requireAuth, restrictTo("admin", "editeur"), LivreController.getLivresAdmin);
 router.post("/", requireAuth, restrictTo("admin", "editeur"), LivreController.createLivre);
 router.put("/:id", requireAuth, restrictTo("admin", "editeur"), LivreController.updateLivre);
+router.post("/:id/fichier", requireAuth, restrictTo("admin", "editeur"), upload.single("file"), LivreController.uploadFichier);
 router.delete("/:id", requireAuth, restrictTo("admin"), LivreController.deleteLivre);
 
 router.get("/:slug/apercu", LivreController.getApercuLivre);

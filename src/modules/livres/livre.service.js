@@ -3,9 +3,39 @@ import { Auteur } from "../auteurs/auteur.model.js";
 import { Category } from "../categories/category.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
-import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
+import {
+  assertCloudinaryConfigured,
+  uploadBufferToCloudinary,
+  resolveCloudinaryMediaFields,
+} from "../../utils/cloudinary.service.js";
 
 export class LivreService {
+  static async uploadFichier(id, file, format) {
+    if (!file) throw new AppError("Aucun fichier fourni", 400);
+    const extension = format === "pdf" ? "pdf" : format === "epub" ? "epub" : "";
+    if (!extension) throw new AppError("Format de fichier invalide", 400);
+    if (file.size > 50 * 1024 * 1024) {
+      throw new AppError("Le fichier ne doit pas dépasser 50 Mo", 400);
+    }
+    const mimeAttendu = extension === "pdf" ? "application/pdf" : "application/epub+zip";
+    if (file.mimetype !== mimeAttendu) {
+      throw new AppError(`Le fichier doit être au format ${extension.toUpperCase()}`, 400);
+    }
+
+    const livre = await Livre.findById(id).select("+fichiers");
+    if (!livre) throw new AppError("Livre introuvable", 404);
+    assertCloudinaryConfigured();
+    const uploaded = await uploadBufferToCloudinary(file.buffer, {
+      folder: "itobe/livres/fichiers",
+      mimetype: file.mimetype,
+    });
+    const ancienUrl = livre.fichiers?.[`${extension}Url`];
+    livre.fichiers = { ...livre.fichiers, [`${extension}Url`]: uploaded.url };
+    await livre.save({ validateBeforeSave: false });
+    if (ancienUrl) console.log(`[Livre] Ancien fichier ${extension} remplacé pour ${id}`);
+    return livre;
+  }
+
   static async getAllLivres({
     page = 1,
     limit = 100,
