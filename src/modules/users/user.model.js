@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema(
       },
       default: "lecteur",
     },
+    portail: {
+      type: String,
+      enum: ["edition", "media"],
+      default: "media",
+    },
     statut: {
       type: String,
       enum: ["Actif", "Suspendu"],
@@ -71,6 +76,11 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
       default: "",
+    },
+    avatarPublicId: {
+      type: String,
+      default: "",
+      select: false,
     },
     preferences: {
       newsletter: { type: Boolean, default: true },

@@ -1,52 +1,85 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { connectDB } from "../config/db.config.js";
+import { ENV } from "../config/env.config.js";
 import { User } from "../modules/users/user.model.js";
 import { Category } from "../modules/categories/category.model.js";
 import { Auteur } from "../modules/auteurs/auteur.model.js";
 import { Article } from "../modules/articles/article.model.js";
 import { Livre } from "../modules/livres/livre.model.js";
 
+const adminUsers = [
+  {
+    nom: "Kakesa",
+    prenom: "Espoir",
+    email: "admin-edition@itobe.cd",
+    role: "admin",
+    portail: "edition",
+    statut: "Actif",
+  },
+  {
+    nom: "Itobe",
+    prenom: "Media",
+    email: "admin-media@itobe.cd",
+    role: "admin",
+    portail: "media",
+    statut: "Actif",
+  },
+];
+
+async function ensureAdminUsers() {
+  return Promise.all(
+    adminUsers.map(async (userData) => {
+      const existingUser = await User.findOne({ email: userData.email });
+      if (existingUser) {
+        existingUser.role = "admin";
+        existingUser.portail = userData.portail;
+        existingUser.statut = "Actif";
+        await existingUser.save({ validateBeforeSave: false });
+        return existingUser;
+      }
+
+      const password =
+        process.env[`SEED_${userData.portail.toUpperCase()}_ADMIN_PASSWORD`] ||
+        (ENV.NODE_ENV === "production" ? "" : "admin123");
+      if (!password) {
+        throw new Error(
+          `Mot de passe manquant pour ${userData.portail}. Définissez SEED_${userData.portail.toUpperCase()}_ADMIN_PASSWORD.`,
+        );
+      }
+
+      return User.create({ ...userData, password });
+    }),
+  );
+}
+
 async function seed() {
   console.log("[Seed] ⏳ Connexion à la base de données...");
   await connectDB();
 
+  const [editionAdmin, mediaAdmin] = await ensureAdminUsers();
+
+  if (ENV.NODE_ENV === "production") {
+    console.log("[Seed] ✅ Production : les deux administrateurs sont disponibles.");
+    await mongoose.connection.close();
+    return;
+  }
+
+  if (process.env.SEED_RESET_DATA !== "true") {
+    throw new Error(
+      "Seed interrompu. Définissez SEED_RESET_DATA=true uniquement pour autoriser la réinitialisation des données.",
+    );
+  }
+
   console.log("[Seed] 🧹 Nettoyage des anciennes données...");
   await Promise.all([
-    User.deleteMany({}),
     Category.deleteMany({}),
     Auteur.deleteMany({}),
     Article.deleteMany({}),
     Livre.deleteMany({}),
   ]);
 
-  console.log("[Seed] 👤 Création des utilisateurs...");
-  const [adminUser, editeurUser, lecteurUser] = await User.create([
-    {
-      nom: "Kakesa",
-      prenom: "Espoir",
-      email: "admin@itobe.cd",
-      password: "admin123",
-      role: "admin",
-      statut: "Actif",
-    },
-    {
-      nom: "Bigo's",
-      prenom: "Christopher",
-      email: "editeur@itobe.cd",
-      password: "editeur123",
-      role: "editeur",
-      statut: "Actif",
-    },
-    {
-      nom: "Kabeya",
-      prenom: "Nadia",
-      email: "lecteur@itobe.cd",
-      password: "lecteur123",
-      role: "lecteur",
-      statut: "Actif",
-    },
-  ]);
+  console.log("[Seed] 👤 Administrateurs disponibles...");
 
   console.log("[Seed] 📁 Création des catégories...");
   const categoriesMediaList = [
@@ -94,7 +127,7 @@ async function seed() {
         { label: "Twitter / X", url: "https://x.com" },
         { label: "LinkedIn", url: "https://linkedin.com" },
       ],
-      user: editeurUser._id,
+      user: editionAdmin._id,
     },
     {
       nom: "Espoir Kakesa",
@@ -103,7 +136,7 @@ async function seed() {
       role: "Journaliste & Auteur",
       photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face",
       reseaux: [{ label: "Twitter / X", url: "https://x.com" }],
-      user: adminUser._id,
+      user: mediaAdmin._id,
     },
     {
       nom: "Marie Lomba",
@@ -226,9 +259,8 @@ async function seed() {
   console.log("[Seed] ✅ Base de données initialisée avec succès !");
   console.log("--------------------------------------------------");
   console.log("Comptes créés :");
-  console.log("1. Admin   : admin@itobe.cd    / admin123");
-  console.log("2. Éditeur : editeur@itobe.cd  / editeur123");
-  console.log("3. Lecteur : lecteur@itobe.cd  / lecteur123");
+  console.log("1. Admin édition : admin-edition@itobe.cd / admin123");
+  console.log("2. Admin média   : admin-media@itobe.cd   / admin123");
   console.log("--------------------------------------------------");
   process.exit(0);
 }
