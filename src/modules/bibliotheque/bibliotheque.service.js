@@ -1,7 +1,10 @@
 import { Bibliotheque } from "./bibliotheque.model.js";
 import { Livre } from "../livres/livre.model.js";
+import { User } from "../users/user.model.js";
 import { Abonnement } from "../abonnements/abonnement.model.js";
 import { AppError } from "../../utils/api-error.js";
+import { Readable } from "node:stream";
+import { getFileStreamFromGridFS } from "../../utils/gridfs.service.js";
 
 export class BibliothequeService {
   static async getOrCreateBibliotheque(userId) {
@@ -247,19 +250,33 @@ export class BibliothequeService {
 
   static async verifierAccesLecture(userId, livreSlugOrId) {
     const livre = await this._resoudreLivre(livreSlugOrId);
-    const biblio = await this.getOrCreateBibliotheque(userId);
 
-    // 1. Livre acheté à l'unité
-    const achete = biblio.achetes.some((a) => a.livre.toString() === livre._id.toString());
-    if (achete) return { accesComplet: true, motif: "achat" };
+    // Livre gratuit
+    if (livre.prix === 0) {
+      return { accesComplet: true, motif: "gratuit" };
+    }
 
-    // 2. Abonnement Premium actif
-    const abonnement = await Abonnement.findOne({
-      user: userId,
-      statut: "actif",
-      prochaineEcheance: { $gte: new Date() },
-    });
-    if (abonnement) return { accesComplet: true, motif: "premium" };
+    if (userId) {
+      const user = await User.findById(userId);
+      // Rôles avec accès illimité de gestion/lecture
+      if (user && (user.role === "admin" || user.role === "editeur")) {
+        return { accesComplet: true, motif: "admin" };
+      }
+
+      const biblio = await this.getOrCreateBibliotheque(userId);
+
+      // 1. Livre acheté à l'unité
+      const achete = biblio.achetes.some((a) => a.livre.toString() === livre._id.toString());
+      if (achete) return { accesComplet: true, motif: "achat" };
+
+      // 2. Abonnement Premium actif
+      const abonnement = await Abonnement.findOne({
+        user: userId,
+        statut: "actif",
+        prochaineEcheance: { $gte: new Date() },
+      });
+      if (abonnement) return { accesComplet: true, motif: "premium" };
+    }
 
     return {
       accesComplet: false,
@@ -268,10 +285,62 @@ export class BibliothequeService {
     };
   }
 
+  static async diffuserLecture(userId, livreSlugOrId, res) {
+    const acces = await this.verifierAccesLecture(userId, livreSlugOrId);
+    if (!acces.accesComplet) {
+      throw new AppError("Achetez cet ouvrage ou activez votre abonnement pour le lire.", 403);
+    }
+
+    const livre = await this._resoudreLivre(livreSlugOrId);
+    const pdfFileId = livre.fichiers?.pdfFileId;
+    const pdfUrl = livre.fichiers?.pdfUrl;
+
+    // 1. Streaming natif depuis MongoDB GridFS
+    if (pdfFileId) {
+      const gridFsFile = await getFileStreamFromGridFS(pdfFileId);
+      if (gridFsFile) {
+        res.set({
+          "Content-Type": gridFsFile.file.contentType || "application/pdf",
+          "Content-Length": gridFsFile.file.length,
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+        });
+        livre.lecturesCount = (livre.lecturesCount || 0) + 1;
+        await livre.save({ validateBeforeSave: false });
+        return gridFsFile.stream.pipe(res);
+      }
+    }
+
+    // 2. Rétro-compatibilité si URL distante existante (ex: legacy Cloudinary)
+    if (pdfUrl && pdfUrl.startsWith("http")) {
+      try {
+        const source = await fetch(pdfUrl);
+        if (!source.ok || !source.body) throw new Error(`Source PDF indisponible (${source.status})`);
+
+        res.set({
+          "Content-Type": source.headers.get("content-type") || "application/pdf",
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "sandbox",
+        });
+        return Readable.fromWeb(source.body).pipe(res);
+      } catch (error) {
+        console.warn(`[Lecture] Proxy PDF indisponible pour ${livre.slug}: ${error.message}`);
+        return res.json({ success: true, data: { url: pdfUrl }, message: "Document autorisé" });
+      }
+    }
+
+    return res.status(204).end();
+  }
+
   static async _resoudreLivre(slugOrId) {
-    let livre = await Livre.findOne({ slug: slugOrId });
-    if (!livre && slugOrId.match(/^[0-9a-fA-F]{24}$/)) {
-      livre = await Livre.findById(slugOrId);
+    if (!slugOrId) throw new AppError("Identifiant ou slug de livre manquant", 400);
+    const str = String(slugOrId);
+    let livre = await Livre.findOne({ slug: str });
+    if (!livre && str.match(/^[0-9a-fA-F]{24}$/)) {
+      livre = await Livre.findById(str);
     }
     if (!livre) {
       throw new AppError("Livre introuvable", 404);

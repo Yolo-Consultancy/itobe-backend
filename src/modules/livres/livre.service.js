@@ -8,8 +8,16 @@ import {
   uploadBufferToCloudinary,
   resolveCloudinaryMediaFields,
 } from "../../utils/cloudinary.service.js";
+import { uploadFileToGridFS, deleteFileFromGridFS } from "../../utils/gridfs.service.js";
+import { extractAndPopulatePdfChapters } from "../../utils/pdf-extractor.js";
 
 export class LivreService {
+  static masquerFichiers(livre) {
+    const resultat = livre?.toObject ? livre.toObject() : { ...livre };
+    if (resultat) delete resultat.fichiers;
+    return resultat;
+  }
+
   static async uploadFichier(id, file, format) {
     if (!file) throw new AppError("Aucun fichier fourni", 400);
     const extension = format === "pdf" ? "pdf" : format === "epub" ? "epub" : "";
@@ -24,15 +32,38 @@ export class LivreService {
 
     const livre = await Livre.findById(id).select("+fichiers");
     if (!livre) throw new AppError("Livre introuvable", 404);
-    assertCloudinaryConfigured();
-    const uploaded = await uploadBufferToCloudinary(file.buffer, {
-      folder: "itobe/livres/fichiers",
-      mimetype: file.mimetype,
+
+    const ancienFileId = livre.fichiers?.[`${extension}FileId`];
+    if (ancienFileId) {
+      await deleteFileFromGridFS(ancienFileId);
+    }
+
+    const filename = `${livre.slug || id}.${extension}`;
+    const uploaded = await uploadFileToGridFS(file.buffer, filename, file.mimetype, {
+      livreId: livre._id,
+      slug: livre.slug,
+      format: extension,
+      originalName: file.originalname,
     });
-    const ancienUrl = livre.fichiers?.[`${extension}Url`];
-    livre.fichiers = { ...livre.fichiers, [`${extension}Url`]: uploaded.url };
+
+    // Extraction automatique du contenu du PDF pour alimenter les chapitres natifs
+    if (extension === "pdf") {
+      try {
+        const { numPages } = await extractAndPopulatePdfChapters(file.buffer, livre);
+        if (numPages && numPages > 0) {
+          livre.pages = numPages;
+        }
+      } catch (err) {
+        console.warn(`[Livre] Impossible d'extraire le texte du PDF pour ${livre.slug}:`, err.message);
+      }
+    }
+
+    livre.fichiers = {
+      ...livre.fichiers,
+      [`${extension}FileId`]: uploaded.fileId,
+      [`${extension}Url`]: `/api/v1/bibliotheque/lecture/${livre.slug}`,
+    };
     await livre.save({ validateBeforeSave: false });
-    if (ancienUrl) console.log(`[Livre] Ancien fichier ${extension} remplacé pour ${id}`);
     return livre;
   }
 
@@ -108,7 +139,7 @@ export class LivreService {
     ]);
 
     return {
-      livres,
+      livres: admin ? livres : livres.map((livre) => this.masquerFichiers(livre)),
       pagination: {
         page: Number(page),
         limit: pageLimit,
@@ -143,8 +174,8 @@ export class LivreService {
       .limit(4);
 
     return {
-      livre,
-      memeAuteur,
+      livre: this.masquerFichiers(livre),
+      memeAuteur: memeAuteur.map((ouvrage) => this.masquerFichiers(ouvrage)),
     };
   }
 
@@ -196,9 +227,9 @@ export class LivreService {
     }
 
     // Génération automatique des chapitres par défaut si non fournis
+    const nbChapitres = Math.min(Math.max(Number(data.nombreChapitres) || 6, 1), 100);
     let chapitres = data.chapitres;
     if (!chapitres || chapitres.length === 0) {
-      const nbChapitres = 6;
       const pagesTotales = Number(data.pages) || 200;
       const pagesParChapitre = Math.round(pagesTotales / nbChapitres);
       chapitres = Array.from({ length: nbChapitres }, (_, i) => ({
@@ -220,6 +251,7 @@ export class LivreService {
       auteur: auteurId,
       categorie: categorieId,
       formats: formats || ["PDF", "EPUB"],
+      nombreChapitres: nbChapitres,
       chapitres,
       resume: String(payload.resume ?? "").trim() || "Résumé à compléter.",
       prix: Number(payload.prix),
@@ -282,6 +314,12 @@ export class LivreService {
     const livre = await Livre.findByIdAndDelete(id);
     if (!livre) {
       throw new AppError("Livre introuvable", 404);
+    }
+    if (livre.fichiers?.pdfFileId) {
+      await deleteFileFromGridFS(livre.fichiers.pdfFileId);
+    }
+    if (livre.fichiers?.epubFileId) {
+      await deleteFileFromGridFS(livre.fichiers.epubFileId);
     }
     return livre;
   }

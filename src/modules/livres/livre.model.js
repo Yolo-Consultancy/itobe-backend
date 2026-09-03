@@ -109,6 +109,12 @@ const livreSchema = new mongoose.Schema(
       type: Number,
       default: 10,
     },
+    nombreChapitres: {
+      type: Number,
+      default: 6,
+      min: 1,
+      max: 100,
+    },
     chapitres: {
       type: [chapitreSchema],
       default: [],
@@ -116,6 +122,8 @@ const livreSchema = new mongoose.Schema(
     fichiers: {
       pdfUrl: { type: String, default: "" },
       epubUrl: { type: String, default: "" },
+      pdfFileId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      epubFileId: { type: mongoose.Schema.Types.ObjectId, default: null },
     },
     ventesCount: {
       type: Number,

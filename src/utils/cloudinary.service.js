@@ -48,7 +48,7 @@ export async function uploadToCloudinary(source, { folder = "itobe", resourceTyp
 
 export async function uploadBufferToCloudinary(
   buffer,
-  { folder = "itobe", mimetype = "application/octet-stream" } = {},
+  { folder = "itobe", mimetype = "application/octet-stream", resourceType = "auto" } = {},
 ) {
   assertCloudinaryConfigured();
 
@@ -57,7 +57,7 @@ export async function uploadBufferToCloudinary(
   }
 
   const dataUri = `data:${mimetype};base64,${buffer.toString("base64")}`;
-  return uploadToCloudinary(dataUri, { folder });
+  return uploadToCloudinary(dataUri, { folder, resourceType });
 }
 
 export async function uploadFileToCloudinary(file, folder = "itobe") {

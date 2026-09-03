@@ -16,6 +16,7 @@ import { auteurRoutes } from './modules/auteurs/auteur.route.js';
 import { articleRoutes } from './modules/articles/article.route.js';
 import { actualiteRoutes } from './modules/actualites/actualite.route.js';
 import { livreRoutes } from './modules/livres/livre.route.js';
+import { chapitreRoutes } from './modules/chapitres/chapitre.route.js';
 import { mediaRoutes } from './modules/medias/media.route.js';
 import { commandeRoutes } from './modules/commandes/commande.route.js';
 import { panierRoutes } from './modules/panier/panier.route.js';
@@ -64,7 +65,9 @@ api.use('/auteurs', auteurRoutes);
 api.use('/articles', articleRoutes);
 api.use('/actualites', actualiteRoutes);
 api.use('/livres', livreRoutes);
+api.use('/chapitres', chapitreRoutes);
 api.use('/medias', mediaRoutes);
+
 api.use('/commandes', commandeRoutes);
 api.use('/panier', panierRoutes);
 api.use('/paiements', paiementRoutes);

@@ -64,4 +64,12 @@ export class BibliothequeController {
       next(error);
     }
   }
+
+  static async streamLecture(req, res, next) {
+    try {
+      await BibliothequeService.diffuserLecture(req.user._id, req.params.slug, res);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

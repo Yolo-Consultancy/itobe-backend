@@ -13,5 +13,6 @@ router.put("/progression", BibliothequeController.updateProgress);
 router.post("/marque-pages", BibliothequeController.manageBookmarks);
 router.post("/sync", BibliothequeController.syncDevices);
 router.get("/acces/:slug", BibliothequeController.checkAccess);
+router.get("/lecture/:slug", BibliothequeController.streamLecture);
 
 export const bibliothequeRoutes = router;
