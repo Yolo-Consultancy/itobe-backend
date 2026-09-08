@@ -18,4 +18,6 @@ export const ENV = {
   SMTP_USER: process.env.SMTP_USER || "",
   SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
   SMTP_FROM: process.env.SMTP_FROM || "Itobe",
+  /** ID de chaîne YouTube (ex. UCxxxxxxxx) pour le portail Média → Vidéos */
+  YOUTUBE_CHANNEL_ID: process.env.YOUTUBE_CHANNEL_ID || "",
 };

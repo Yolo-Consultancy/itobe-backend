@@ -9,7 +9,9 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/utils/seed.js",
     "test": "node --test tests/**/*.test.js",
-    "migrate:chapitres": "node scripts/migrate-chapitres-legacy.js"
+    "test:pages": "node tests/pages-workflow.smoke.js",
+    "migrate:chapitres": "node scripts/migrate-chapitres-legacy.js",
+    "migrate:pages": "node scripts/migrate-chapitre-contenu-to-pages.js"
   },
   "keywords": [
     "nodejs",

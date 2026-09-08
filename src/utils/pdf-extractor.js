@@ -13,8 +13,14 @@ export function convertTextToTiptapDoc(rawText) {
     return { type: "doc", content: [] };
   }
 
-  // Découper par doubles retours à la ligne ou lignes non vides
-  const paragraphs = rawText
+  // Coupes PDF + wraps : informa-\ntion → information, puis espaces
+  const cleaned = String(rawText)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/(\p{L})-\n(\p{L})/gu, "$1$2")
+    .replace(/\u00AD/g, "");
+
+  const paragraphs = cleaned
     .split(/\n\s*\n/)
     .map((p) => p.replace(/\s+/g, " ").trim())
     .filter((p) => p.length > 0);

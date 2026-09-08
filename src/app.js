@@ -17,6 +17,7 @@ import { articleRoutes } from './modules/articles/article.route.js';
 import { actualiteRoutes } from './modules/actualites/actualite.route.js';
 import { livreRoutes } from './modules/livres/livre.route.js';
 import { chapitreRoutes } from './modules/chapitres/chapitre.route.js';
+import { pageRoutes } from './modules/pages/page.route.js';
 import { mediaRoutes } from './modules/medias/media.route.js';
 import { commandeRoutes } from './modules/commandes/commande.route.js';
 import { panierRoutes } from './modules/panier/panier.route.js';
@@ -31,6 +32,7 @@ import { calendrierRoutes } from './modules/calendrier/calendrier.route.js';
 import { commentaireRoutes } from './modules/commentaires/commentaire.route.js';
 import { contactRoutes } from './modules/contact/contact.route.js';
 import { rechercheRoutes } from './modules/recherche/recherche.route.js';
+import { youtubeRoutes } from './modules/youtube/youtube.route.js';
 
 const app = express();
 
@@ -66,6 +68,7 @@ api.use('/articles', articleRoutes);
 api.use('/actualites', actualiteRoutes);
 api.use('/livres', livreRoutes);
 api.use('/chapitres', chapitreRoutes);
+api.use('/pages', pageRoutes);
 api.use('/medias', mediaRoutes);
 
 api.use('/commandes', commandeRoutes);
@@ -81,6 +84,7 @@ api.use('/calendrier', calendrierRoutes);
 api.use('/commentaires', commentaireRoutes);
 api.use('/contact', contactRoutes);
 api.use('/recherche', rechercheRoutes);
+api.use('/youtube', youtubeRoutes);
 
 app.use('/api/v1', api);
 

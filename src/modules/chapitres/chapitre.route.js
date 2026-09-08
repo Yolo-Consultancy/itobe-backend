@@ -1,8 +1,12 @@
 import { Router } from "express";
 import { ChapitreController } from "./chapitre.controller.js";
+import { pageChapitreRoutes } from "../pages/page.route.js";
 import { requireAuth, optionalAuth } from "../../middleware/auth.middleware.js";
 
 const router = Router();
+
+// Sous-routes Pages éditoriales d'un chapitre (avant /:id pour éviter les collisions)
+router.use("/:chapitreId/pages", pageChapitreRoutes);
 
 // Routes pour les chapitres par ID
 router.get("/:id", optionalAuth, ChapitreController.getChapitreById);

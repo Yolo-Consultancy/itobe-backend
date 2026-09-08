@@ -40,6 +40,12 @@ const chapitreSchema = new mongoose.Schema(
       default: 1,
       min: 0,
     },
+    /**
+     * @deprecated LEGACY — source de vérité du contenu = Page.contenu
+     * Conservé en V1 pour compatibilité reader / anciens chapitres.
+     * Ne plus écrire le contenu éditorial ici pour les nouveaux flux.
+     * Suppression prévue après migration complète + adaptation du reader.
+     */
     contenu: {
       type: mongoose.Schema.Types.Mixed,
       default: () => ({ type: "doc", content: [] }),
@@ -52,6 +58,12 @@ const chapitreSchema = new mongoose.Schema(
       },
       default: "Brouillon",
     },
+    /**
+     * @deprecated LEGACY — plage de numéros (ex. [1,2,...,24]), PAS des entités Page.
+     * Ne plus utiliser pour la gestion des pages éditoriales.
+     * Source de vérité : collection Page (Page.chapitre + Page.ordre).
+     * Conservé temporairement pour compatibilité ; ne pas ajouter de logique métier.
+     */
     pages: {
       type: [Number],
       default: [],

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Chapitre } from "./chapitre.model.js";
 import { VersionChapitre } from "./version-chapitre.model.js";
+import { Page } from "../pages/page.model.js";
 import { Livre } from "../livres/livre.model.js";
 import { Auteur } from "../auteurs/auteur.model.js";
 import { BibliothequeService } from "../bibliotheque/bibliotheque.service.js";
@@ -180,6 +181,21 @@ export class ChapitreService {
       derniereModificationPar: user._id,
     });
 
+    // Architecture Livre → Chapitre → Page : chaque nouveau chapitre démarre avec Page 1.
+    // chapitre.contenu reste legacy (copie initiale) pour transition / reader.
+    const pagesExistantes = await Page.countDocuments({ chapitre: chapitre._id });
+    if (pagesExistantes === 0) {
+      await Page.create({
+        chapitre: chapitre._id,
+        livre: livre._id,
+        titre: "Page 1",
+        ordre: 1,
+        contenu: chapitre.contenu || { type: "doc", content: [] },
+        revision: 1,
+        derniereModificationPar: user._id,
+      });
+    }
+
     return chapitre;
   }
 
@@ -272,6 +288,7 @@ export class ChapitreService {
     await Promise.all([
       Chapitre.findByIdAndDelete(chapitreId),
       VersionChapitre.deleteMany({ chapitre: chapitreId }),
+      Page.deleteMany({ chapitre: chapitreId }),
     ]);
 
     return { success: true, message: `Chapitre « ${chapitre.titre} » supprimé avec succès.` };
