@@ -36,13 +36,46 @@ import { youtubeRoutes } from './modules/youtube/youtube.route.js';
 
 const app = express();
 
-// Middleware
-app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+/** Origines front autorisées (dev multi-ports). */
+const corsOrigins = [
+  ENV.CLIENT_URL,
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+].filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Outils sans Origin (curl, SSR, Postman) + origines front connues
+    if (!origin || corsOrigins.includes(origin) || ENV.NODE_ENV === "development") {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`Origine CORS refusée: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  optionsSuccessStatus: 204,
+};
+
+// Middleware — CORS avant Helmet pour les preflight OPTIONS
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-if (ENV.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+if (ENV.NODE_ENV !== "test") {
+  app.use(morgan("dev"));
 }
 
 // Connect to DB

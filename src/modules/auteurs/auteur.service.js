@@ -5,6 +5,10 @@ import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
 import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
 
+function isMongoObjectId(id) {
+  return typeof id === "string" && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
 export class AuteurService {
   static async getAllAuteurs({ page, limit, q } = {}) {
     const filter = {};
@@ -91,11 +95,22 @@ export class AuteurService {
       coverKey: "photo",
       galleryKey: null,
     });
+    delete payload.id;
+    delete payload._id;
 
-    const auteur = await Auteur.findByIdAndUpdate(id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    let auteur = isMongoObjectId(id)
+      ? await Auteur.findByIdAndUpdate(id, payload, {
+          new: true,
+          runValidators: true,
+        })
+      : null;
+
+    if (!auteur) {
+      auteur = await Auteur.findOneAndUpdate({ slug: id }, payload, {
+        new: true,
+        runValidators: true,
+      });
+    }
 
     if (!auteur) {
       throw new AppError("Auteur introuvable", 404);
@@ -105,7 +120,10 @@ export class AuteurService {
   }
 
   static async deleteAuteur(id) {
-    const auteur = await Auteur.findByIdAndDelete(id);
+    let auteur = isMongoObjectId(id) ? await Auteur.findByIdAndDelete(id) : null;
+    if (!auteur) {
+      auteur = await Auteur.findOneAndDelete({ slug: id });
+    }
     if (!auteur) {
       throw new AppError("Auteur introuvable", 404);
     }
