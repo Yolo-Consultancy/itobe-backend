@@ -23,7 +23,7 @@ export class DashboardService {
     };
   }
 
-  static getVisitorStatistics() {
-    return VisitorService.getStatistics();
+  static getVisitorStatistics(period) {
+    return VisitorService.getStatistics(period);
   }
 }
