@@ -3,6 +3,7 @@ import { Livre } from "../livres/livre.model.js";
 import { User } from "../users/user.model.js";
 import { Commande } from "../commandes/commande.model.js";
 import { Abonnement } from "../abonnements/abonnement.model.js";
+import { VisitorService } from "./visitor.service.js";
 
 export class DashboardService {
   static async getStatistics() {
@@ -20,5 +21,9 @@ export class DashboardService {
       commandes: commandeCount,
       abonnements: abonnementCount,
     };
+  }
+
+  static getVisitorStatistics() {
+    return VisitorService.getStatistics();
   }
 }
