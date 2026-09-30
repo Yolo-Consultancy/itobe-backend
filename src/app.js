@@ -33,6 +33,7 @@ import { commentaireRoutes } from './modules/commentaires/commentaire.route.js';
 import { contactRoutes } from './modules/contact/contact.route.js';
 import { rechercheRoutes } from './modules/recherche/recherche.route.js';
 import { youtubeRoutes } from './modules/youtube/youtube.route.js';
+import { comptabiliteRoutes } from './modules/comptabilite/comptabilite.route.js';
 
 const app = express();
 
@@ -118,6 +119,7 @@ api.use('/commentaires', commentaireRoutes);
 api.use('/contact', contactRoutes);
 api.use('/recherche', rechercheRoutes);
 api.use('/youtube', youtubeRoutes);
+api.use('/comptabilite', comptabiliteRoutes);
 
 app.use('/api/v1', api);
 

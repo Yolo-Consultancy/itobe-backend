@@ -10,7 +10,7 @@ router.get("/:id", PromotionController.getPromotionById);
 
 // Routes protégées Admin
 router.use(requireAuth);
-router.use(restrictTo("admin"));
+router.use(restrictTo("admin", "editeur"));
 
 router.post("/", PromotionController.createPromotion);
 router.put("/:id", PromotionController.updatePromotion);

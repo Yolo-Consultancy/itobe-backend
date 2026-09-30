@@ -11,6 +11,6 @@ router.use(requireAuth);
 router.use(restrictTo("admin", "editeur"));
 
 router.get("/", DashboardController.getStats);
-router.get("/visitors", restrictTo("admin"), DashboardController.getVisitorStats);
+router.get("/visitors", restrictTo("admin", "editeur"), DashboardController.getVisitorStats);
 
 export const dashboardRoutes = router;

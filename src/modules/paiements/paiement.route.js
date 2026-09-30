@@ -5,7 +5,7 @@ import { requireAuth, restrictTo } from "../../middleware/auth.middleware.js";
 const router = Router();
 
 router.use(requireAuth);
-router.use(restrictTo("admin"));
+router.use(restrictTo("admin", "editeur"));
 
 router.get("/", PaiementController.getAllPaiements);
 router.get("/:id", PaiementController.getPaiementById);

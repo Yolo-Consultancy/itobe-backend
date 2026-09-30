@@ -9,7 +9,7 @@ router.post("/valider", CouponController.validerCoupon);
 
 // Gestion administrative
 router.use(requireAuth);
-router.use(restrictTo("admin"));
+router.use(restrictTo("admin", "editeur"));
 
 router.get("/", CouponController.getAllCoupons);
 router.get("/:id", CouponController.getCouponById);

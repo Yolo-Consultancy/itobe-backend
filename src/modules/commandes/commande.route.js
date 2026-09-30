@@ -12,8 +12,8 @@ router.post("/", CommandeController.createOrder);
 router.post("/:id/cancel", CommandeController.cancelOrder);
 
 // Routes de gestion Admin
-router.get("/", restrictTo("admin"), CommandeController.getAllOrders);
+router.get("/", restrictTo("admin", "editeur"), CommandeController.getAllOrders);
 router.get("/:id", CommandeController.getOrderById);
-router.put("/:id/statut", restrictTo("admin"), CommandeController.updateOrderStatus);
+router.put("/:id/statut", restrictTo("admin", "editeur"), CommandeController.updateOrderStatus);
 
 export const commandeRoutes = router;

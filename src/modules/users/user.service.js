@@ -1,5 +1,8 @@
 import { User } from "./user.model.js";
 import { AppError } from "../../utils/api-error.js";
+import { ENV } from "../../config/env.config.js";
+
+const EMAIL_COMPTABLE = "comptable@itobe.cd";
 
 export class UserService {
   static async getAllUsers({ page = 1, limit = 20, role, statut, q } = {}) {
@@ -76,6 +79,33 @@ export class UserService {
       throw new AppError("Utilisateur introuvable", 404);
     }
 
+    return user;
+  }
+
+  static async ensureComptableParDefaut() {
+    const existing = await User.findOne({ email: EMAIL_COMPTABLE });
+    if (existing) return existing;
+
+    const password =
+      process.env.SEED_COMPTABLE_PASSWORD ||
+      (ENV.NODE_ENV === "production" ? "" : "comptable123");
+    if (!password) {
+      console.warn(
+        "[Comptable] Compte par défaut absent. Définissez SEED_COMPTABLE_PASSWORD pour le créer.",
+      );
+      return null;
+    }
+
+    const user = await User.create({
+      nom: "Comptable",
+      prenom: "Itobe",
+      email: EMAIL_COMPTABLE,
+      password,
+      role: "comptable",
+      portail: "edition",
+      statut: "Actif",
+    });
+    console.log(`[Comptable] Compte par défaut créé : ${EMAIL_COMPTABLE}`);
     return user;
   }
 

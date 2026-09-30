@@ -1,7 +1,30 @@
 import { UserService } from "./user.service.js";
 import { ApiResponse } from "../../utils/api-response.js";
+import { chargerOverrides, enregistrerCase, matriceModules, ROLES_PLATEFORME } from "../comptabilite/permissions.js";
 
 export class UserController {
+  static async getPermissions(_req, res, next) {
+    try {
+      await chargerOverrides();
+      return ApiResponse.success(res, {
+        roles: ROLES_PLATEFORME,
+        modules: matriceModules(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updatePermission(req, res, next) {
+    try {
+      const { espace, module, action, role, autorise } = req.body ?? {};
+      await enregistrerCase({ espace, module, action, role, autorise });
+      return ApiResponse.success(res, matriceModules(), "Droit enregistré");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getAllUsers(req, res, next) {
     try {
       const { page, limit, role, statut, q } = req.query;
