@@ -1,6 +1,5 @@
 import { Auteur } from "./auteur.model.js";
 import { Livre } from "../livres/livre.model.js";
-import { Article } from "../articles/article.model.js";
 import { AppError } from "../../utils/api-error.js";
 import { slugify } from "../../utils/slugify.js";
 import { resolveCloudinaryMediaFields } from "../../utils/cloudinary.service.js";
@@ -51,16 +50,11 @@ export class AuteurService {
       throw new AppError("Auteur introuvable", 404);
     }
 
-    // Récupérer les livres et articles de l'auteur
-    const [livres, articles] = await Promise.all([
-      Livre.find({ auteur: auteur._id, disponible: true }).sort({ publication: -1 }),
-      Article.find({ auteur: auteur._id, statut: "Publié" }).sort({ datePublication: -1 }),
-    ]);
+    const livres = await Livre.find({ auteur: auteur._id, disponible: true }).sort({ publication: -1 });
 
     return {
       auteur,
       livres,
-      articles,
     };
   }
 
