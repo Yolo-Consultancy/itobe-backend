@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { NewsletterController } from "./newsletter.controller.js";
 import { requireAuth, restrictTo } from "../../middleware/auth.middleware.js";
+import { limiteRequetes } from "../../middleware/rate-limit.middleware.js";
 
 const router = Router();
 
 // Inscription publique
-router.post("/subscribe", NewsletterController.subscribe);
+router.post("/subscribe", limiteRequetes("newsletter", 5, 15 * 60 * 1000), NewsletterController.subscribe);
 
 // Administration Newsletter (Admin)
 router.use(requireAuth);

@@ -36,6 +36,13 @@ import { youtubeRoutes } from './modules/youtube/youtube.route.js';
 import { comptabiliteRoutes } from './modules/comptabilite/comptabilite.route.js';
 
 const app = express();
+app.set("trust proxy", 1);
+app.use((req, res, next) => {
+  if (ENV.NODE_ENV === "production" && req.headers["x-forwarded-proto"] === "http") {
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  }
+  next();
+});
 
 /** Origines front autorisées (dev multi-ports). */
 const corsOrigins = [

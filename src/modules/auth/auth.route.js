@@ -2,15 +2,17 @@ import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { upload } from "../../middleware/upload.middleware.js";
+import { limiteRequetes } from "../../middleware/rate-limit.middleware.js";
 
 const router = Router();
+const limiteAuth = limiteRequetes("auth", 10, 15 * 60 * 1000);
 
 // Routes publiques
-router.post("/register", AuthController.register);
-router.post("/login", AuthController.login);
-router.post("/refresh-token", AuthController.refreshToken);
-router.post("/forgot-password", AuthController.forgotPassword);
-router.post("/reset-password", AuthController.resetPassword);
+router.post("/register", limiteAuth, AuthController.register);
+router.post("/login", limiteAuth, AuthController.login);
+router.post("/refresh-token", limiteAuth, AuthController.refreshToken);
+router.post("/forgot-password", limiteAuth, AuthController.forgotPassword);
+router.post("/reset-password", limiteAuth, AuthController.resetPassword);
 
 // Routes privées (utilisateur connecté)
 router.use(requireAuth);
